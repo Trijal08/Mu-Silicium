@@ -243,6 +243,7 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
     device_dtb      = RESOURCE_DTBS_PATH / f"{ctx.device}.dtb"
     uefi_fd         = fv_path            / "SILICIUM_UEFI.fd"
     uefi_fd_gz      = fv_path            / "SILICIUM_UEFI.fd.gz"
+    uefi_fd_lz4     = fv_path            / "SILICIUM_UEFI.fd.lz4"
 
     # Check Boot Shim Flag
     if append_boot_shim:
@@ -250,6 +251,7 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
         boot_shim_payload = BOOT_SHIM_PATH / "BootShim.bin"
         boot_shim_fd      = fv_path        / "SILICIUM_UEFI.fd-bootshim"
         boot_shim_fd_gz   = fv_path        / "SILICIUM_UEFI.fd-bootshim.gz"
+        boot_shim_fd_lz4  = fv_path        / "SILICIUM_UEFI.fd-bootshim.lz4"
 
         try:
             # Read File Content
@@ -265,6 +267,7 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
         # Update UEFI FD Paths
         uefi_fd    = boot_shim_fd
         uefi_fd_gz = boot_shim_fd_gz
+        uefi_fd_lz4 = boot_shim_fd_lz4
 
     # Get Kernel Compression Type
     kernel_compression = image_kernel_config.get ("kernel_compression")
@@ -285,6 +288,25 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
                 logger.error (e)
                 return False
 
+        # Use LZ4 Compression
+        case "lz4":
+            try:
+                # -f forces file overwrite
+                # -l generates the absolute legacy block layout needed by the device boot stage
+                cmd = ["lz4", "-f", "-l", str(uefi_fd), str(uefi_fd_lz4)]
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode != 0:
+                    logger.error(f"Host LZ4 binary calculation failed: {result.stderr}")
+                    return False
+            except FileNotFoundError:
+                logger.error("The standard 'lz4' compilation command-line utility is missing from the host machine!")
+                return False
+            except Exception as e:
+                logger.error ("Failed to compress target binary stream using LZ4 architecture guidelines.")
+                logger.error (e)
+                return False
+
         # Use No Compression
         case "none":
             pass
@@ -294,7 +316,7 @@ def create_android_boot_img (ctx: BuildContext, image_kernel_config: dict, image
             return False
 
     # Set Android Kernel Path
-    android_kernel = uefi_fd if kernel_compression == "none" else uefi_fd_gz
+    android_kernel = uefi_fd if kernel_compression == "none" else uefi_fd_gz if kernel_compression == "gzip" else uefi_fd_lz4
 
     # Check DTB Append Flag
     if image_kernel_config.get ("append_dtb"):
