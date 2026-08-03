@@ -29,6 +29,7 @@
 
 [FixedPcd]
   gArmTokenSpaceGuid.PcdSystemMemoryBase
+  gArmTokenSpaceGuid.PcdSystemMemorySize
 
   gSamsungPkgTokenSpaceGuid.PcdHasSecurePgtbl
   gSamsungPkgTokenSpaceGuid.PcdHasHarx
