@@ -71,15 +71,26 @@ GetMemorySpace ()
   EFI_MEMORY_REGION_DESCRIPTOR NsIramRegion;
   UINT64                       MemorySize;
 
-  // Locate "NS_IRAM" Memory Region
-  Status = LocateMemoryRegionByName ("NS_IRAM", &NsIramRegion);
-  if (EFI_ERROR (Status)) {
-    DEBUG ((EFI_D_ERROR, "Failed to Locate \"NS_IRAM\" Memory Region!\n"));
-    return Status;
-  }
+  if (IsSocInfoSupported ()) {
+    // Locate "NS_IRAM" Memory Region
+    Status = LocateMemoryRegionByName ("NS_IRAM", &NsIramRegion);
+    if (EFI_ERROR (Status)) {
+      DEBUG ((EFI_D_ERROR, "Failed to Locate \"NS_IRAM\" Memory Region!\n"));
+      return Status;
+    }
 
-  // Get System Memory Size
-  MemorySize = MmioRead64 (NsIramRegion.Address + 0x848);
+    // Get System Memory Size
+    MemorySize = MmioRead64 (NsIramRegion.Address + 0x848);
+  } else {
+    // The Boot Loader does not maintain the SoC Info Structure. Get the System Memory Size from the Platform Configuration instead.
+    MemorySize = FixedPcdGet64 (PcdSystemMemorySize);
+    if (MemorySize == 0) {
+      DEBUG ((EFI_D_ERROR, "SoC Info is not Supported & PcdSystemMemorySize is not Set!\n"));
+      return EFI_UNSUPPORTED;
+    }
+
+    DEBUG ((EFI_D_WARN, "SoC Info is not Supported! Using PcdSystemMemorySize (0x%llx Bytes).\n", MemorySize));
+  }
 
   // Set Memory Address
   MemoryStart = FixedPcdGet64 (PcdSystemMemoryBase);
@@ -104,32 +115,35 @@ GetMemoryHoles ()
   // Clear Memory Hole Structure
   ZeroMem ((VOID *)HoleRange, sizeof (EFI_MEMORY_RANGE) * ARRAY_SIZE (HoleRange));
 
-  // Get Secure DRAM Memory Hole
-  Status = GetSecureDramRange (&HoleAddress, &HoleLength);
-  if (!EFI_ERROR (Status)) {
-    HoleRange[0].Address = HoleAddress;
-    HoleRange[0].Length  = HoleLength;
-  }
+  // Get the Firmware Managed Memory Holes. Only Samsung Boot Loaders provide the SMC/HVC Services for them.
+  if (IsSocInfoSupported ()) {
+    // Get Secure DRAM Memory Hole
+    Status = GetSecureDramRange (&HoleAddress, &HoleLength);
+    if (!EFI_ERROR (Status)) {
+      HoleRange[0].Address = HoleAddress;
+      HoleRange[0].Length  = HoleLength;
+    }
 
-  // Get H-Arx Memory Hole
-  Status = GetHarxRange (&HoleAddress, &HoleLength);
-  if (!EFI_ERROR (Status)) {
-    HoleRange[1].Address = HoleAddress;
-    HoleRange[1].Length  = HoleLength;
-  }
+    // Get H-Arx Memory Hole
+    Status = GetHarxRange (&HoleAddress, &HoleLength);
+    if (!EFI_ERROR (Status)) {
+      HoleRange[1].Address = HoleAddress;
+      HoleRange[1].Length  = HoleLength;
+    }
 
-  // Get DRM Plugin Memory Hole
-  Status = GetDrmPluginRange (&HoleAddress, &HoleLength);
-  if (!EFI_ERROR (Status)) {
-    HoleRange[2].Address = HoleAddress;
-    HoleRange[2].Length  = HoleLength;
-  }
+    // Get DRM Plugin Memory Hole
+    Status = GetDrmPluginRange (&HoleAddress, &HoleLength);
+    if (!EFI_ERROR (Status)) {
+      HoleRange[2].Address = HoleAddress;
+      HoleRange[2].Length  = HoleLength;
+    }
 
-  // Get Secure PGTBL Memory Hole
-  Status = GetSecurePgtblRange (&HoleAddress, &HoleLength);
-  if (!EFI_ERROR (Status)) {
-    HoleRange[3].Address = HoleAddress;
-    HoleRange[3].Length  = HoleLength;
+    // Get Secure PGTBL Memory Hole
+    Status = GetSecurePgtblRange (&HoleAddress, &HoleLength);
+    if (!EFI_ERROR (Status)) {
+      HoleRange[3].Address = HoleAddress;
+      HoleRange[3].Length  = HoleLength;
+    }
   }
 
   // Add DRAM2 Carve-out

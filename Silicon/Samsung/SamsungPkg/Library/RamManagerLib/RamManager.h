@@ -1,6 +1,10 @@
 #ifndef _RAM_MANAGER_H_
 #define _RAM_MANAGER_H_
 
+BOOLEAN
+IsSocInfoSupported (
+  );
+
 EFI_STATUS
 GetSecureDramRange (
   OUT EFI_PHYSICAL_ADDRESS *Address,

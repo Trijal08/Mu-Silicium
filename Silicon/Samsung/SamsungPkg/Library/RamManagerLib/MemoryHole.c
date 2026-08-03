@@ -15,6 +15,19 @@ STATIC UINTN DrmSocInfoArg[2] = {SOC_INFO_SEC_PGTBL_BASE,         SOC_INFO_SEC_P
 STATIC UINTN HarxInfoArg[2]   = {HARX_INFO_HARX_BASE,             HARX_INFO_HARX_LENGTH};
 STATIC UINTN DrmPluginArg[2]  = {DRM_PLUGIN_INFO_DRM_PLUGIN_BASE, DRM_PLUGIN_INFO_DRM_PLUGIN_LENGTH};
 
+BOOLEAN
+IsSocInfoSupported ()
+{
+  STATIC INT8 SocInfoSupported = -1;
+
+  // Probe SoC Info Version once
+  if (SocInfoSupported < 0) {
+    SocInfoSupported = (ArmCallSmc0 (SmcFunction[0], NULL, NULL, NULL) == SOC_INFO_VERSION) ? 1 : 0;
+  }
+
+  return (BOOLEAN)SocInfoSupported;
+}
+
 EFI_STATUS
 GetSecureDramRange (
   OUT EFI_PHYSICAL_ADDRESS *Address,
@@ -24,7 +37,7 @@ GetSecureDramRange (
   UINTN HoleLength;
 
   // Verify SoC Info Version
-  if (ArmCallSmc0 (SmcFunction[0], NULL, NULL, NULL) != 0x66001000) {
+  if (!IsSocInfoSupported ()) {
     DEBUG ((EFI_D_ERROR, "This SoC Info Version is not Supported!\n"));
     return EFI_UNSUPPORTED;
   }

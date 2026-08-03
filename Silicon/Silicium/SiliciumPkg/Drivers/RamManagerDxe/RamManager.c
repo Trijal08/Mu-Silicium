@@ -188,7 +188,7 @@ ManageRam (
   IN EFI_SYSTEM_TABLE *SystemTable)
 {
   EFI_STATUS        Status;
-  EFI_MEMORY_RANGE *MemoryRange;
+  EFI_MEMORY_RANGE *MemoryRange = NULL;
   UINT8             MemoryRangeCount;
 
   // Get EFI Memory Map

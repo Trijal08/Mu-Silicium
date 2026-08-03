@@ -8,6 +8,11 @@
 #define SMC_CMD_GET_SOC_INFO (-302)
 
 //
+// SoC Info Version
+//
+#define SOC_INFO_VERSION (0x66001000)
+
+//
 // HVC Functions
 //
 #define HVC_GET_DRM_PLUGIN_INFO (0x82002060)
