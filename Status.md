@@ -8,6 +8,45 @@
 ## Supported Devices
 
 <details>
+<summary><b><strong>Google Tensor Devices</strong></b></summary>
+
+<br>
+
+<details>
+<summary><b><strong>Google Tensor G4 Devices</strong></b></summary>
+
+## Google Pixel 9 series
+
+<img align="right" src="https://media.wired.com/photos/66b63388615bf796cbcfb1f6/master/w_1280,c_limit/Google-pixel-9-family-Reviewer-Photo-SOURCE-Julian-Chokkattu.jpg" width="400" alt="Preview">
+
+**State:** Active <br>
+**Codename:** caimito <br>
+**Models:** 5
+
+**Contributors:** [Trijal08](https://github.com/Trijal08/)
+
+### UEFI Status
+
+| Feature            | Description    | State |
+|:-------------------|:---------------|:-----:|
+| Display            |                | ✅    |
+| Internal Storage   |                | ✅    |
+| Side Buttons       |                | ✅    |
+| USB Host Mode      |                | ❌    |
+| USB Device Mode    |                | ❌    |
+| USB Power Delivery |                | ❌    |
+| SD Card            |                | ❌    |
+| Windows Boot       |                | ❌    |
+| Linux Boot         |                | ❌    |
+
+</details>
+
+</details>
+
+---
+
+
+<details>
 <summary><b><strong>Exynos Devices</strong></b></summary>
 
 <br>
