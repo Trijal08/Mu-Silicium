@@ -43,6 +43,13 @@ UINT8 gQueryParams[][5] = {
 
 STATIC EFI_CHIP_INFO_PROTOCOL *mChipInfoProtocol;
 
+//
+// Transfer Request Descriptor Offsets and Lengths are counted in Double Words
+// unless the Host Controller asks for Bytes.
+//
+#define UTRD_GRAN(Ufs, Bytes) \
+  (((Ufs)->Quirks & UFS_QUIRK_PRDT_BYTE_GRAN) ? (UINT16)(Bytes) : (UINT16)((Bytes) >> 2))
+
 STATIC
 VOID
 UfsMapSg (struct UfsHost *Ufs)
@@ -162,7 +169,15 @@ UfsHandleInt (
       MicroSecondDelay(1);
     else {
       Ret = UFS_TIMEOUT;
-      DEBUG ((EFI_D_ERROR, "UFS Timeout\n"));
+      DEBUG ((EFI_D_ERROR, "UFS Timeout (IS = 0x%08x, HCS = 0x%08x, DB = 0x%08x, UECPA = 0x%08x, UECDL = 0x%08x, UECN = 0x%08x, UECT = 0x%08x, UECDME = 0x%08x)\n",
+              Stat,
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_CONTROLLER_STATUS)),
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_UTP_TRANSFER_REQ_DOOR_BELL)),
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER)),
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_DATA_LINK_LAYER)),
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_NETWORK_LAYER)),
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_TRANSPORT_LAYER)),
+              MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_DME))));
     }
   }
 
@@ -214,6 +229,11 @@ UfsDevicePower (
 {
   UINT32 Register;
   UINT32 Mask;
+
+  // Some Boards supply the Device from a Fixed Regulator, which cannot be switched.
+  if (Ufs->DevPwrAddr == NULL) {
+    return;
+  }
 
   Mask = 1 << (Ufs->DevPwrShift);
 
@@ -324,8 +344,8 @@ UfsUtpInit (
 
   Ufs->UtrdAddr->cmd_desc_addr_l = (UINT32)(UINTN)Ufs->CmdDescAddr;
   Ufs->UtrdAddr->cmd_desc_addr_h = (UINT32)((UINTN)Ufs->CmdDescAddr >> 32);
-  Ufs->UtrdAddr->rsp_upiu_off = OFFSET_OF(struct UfsCmdDesc, ResponseUpiu);
-  Ufs->UtrdAddr->rsp_upiu_len = ALIGNED_UPIU_SIZE;
+  Ufs->UtrdAddr->rsp_upiu_off = UTRD_GRAN (Ufs, OFFSET_OF (struct UfsCmdDesc, ResponseUpiu));
+  Ufs->UtrdAddr->rsp_upiu_len = UTRD_GRAN (Ufs, ALIGNED_UPIU_SIZE);
 }
 
 STATIC
@@ -432,8 +452,8 @@ UfsWriteUtrd (
     utrd->dw[0] = UfsCmdGetDir (Ufs->ScsiCmd) | UTP_SCSI_COMMAND | UTP_REQ_DESC_INT_CMD;
     utrd->dw[2] = OCS_INVALID_COMMAND_STATUS;
     if (Length) {
-      utrd->prdt_len = (UINT16)(SgSegs * sizeof (struct UfsPrdt));
-      utrd->prdt_off = ALIGNED_UPIU_SIZE * 2;
+      utrd->prdt_len = UTRD_GRAN (Ufs, SgSegs * sizeof (struct UfsPrdt));
+      utrd->prdt_off = UTRD_GRAN (Ufs, ALIGNED_UPIU_SIZE * 2);
     } else {
       utrd->prdt_len = 0;
       utrd->prdt_off = 0;
@@ -531,6 +551,9 @@ static void UfsQueryReadInfo (struct UfsHost *Ufs, UINT8 idn)
 
   switch (idn) {
   case UPIU_DESC_ID_UNIT:
+    DEBUG((EFI_D_INFO, "UFS unit desc: DataLength=%u bLength=%u IDN=0x%x bUnitIndex=%u bLUEnable=%u\n",
+           SwapBytes16 (resp->Header.DataLength), data[0], data[1], data[2], data[3]));
+
     if (data[2] >= 8) {
       DEBUG((EFI_D_ERROR, "UFS unit desc response INDEX %d out of range\n", data[2]));
       return;
@@ -762,9 +785,12 @@ UfsRefClkSetup (struct UfsHost *Ufs)
   Status = UfsUtpQueryRetry(Ufs, ATTR_R_REFCLKFREQ, 0);
   if (EFI_ERROR(Status)) return Status;
 
-  if (Ufs->Attributes.Array[UPIU_ATTR_ID_REFCLKFREQ] != 0x1)
+  if (Ufs->Attributes.Array[UPIU_ATTR_ID_REFCLKFREQ] != Ufs->RefClkFreq)
   {
-    Ufs->Attributes.Array[UPIU_ATTR_ID_REFCLKFREQ] = 0x01;
+    DEBUG ((EFI_D_INFO, "UFS setting bRefClkFreq %u -> %u\n",
+            Ufs->Attributes.Array[UPIU_ATTR_ID_REFCLKFREQ], Ufs->RefClkFreq));
+
+    Ufs->Attributes.Array[UPIU_ATTR_ID_REFCLKFREQ] = Ufs->RefClkFreq;
     Status = UfsUtpQueryRetry(Ufs, ATTR_W_REFCLKFREQ, 0);
   }
 
@@ -845,8 +871,8 @@ UfsPreSetup (
 
   Ufs->UtrdAddr->cmd_desc_addr_l = (UINT32)(UINTN)Ufs->CmdDescAddr;
   Ufs->UtrdAddr->cmd_desc_addr_h = (UINT32)((UINTN)Ufs->CmdDescAddr >> 32);
-  Ufs->UtrdAddr->rsp_upiu_off = OFFSET_OF (struct UfsCmdDesc, ResponseUpiu);
-  Ufs->UtrdAddr->rsp_upiu_len = ALIGNED_UPIU_SIZE;
+  Ufs->UtrdAddr->rsp_upiu_off = UTRD_GRAN (Ufs, OFFSET_OF (struct UfsCmdDesc, ResponseUpiu));
+  Ufs->UtrdAddr->rsp_upiu_len = UTRD_GRAN (Ufs, ALIGNED_UPIU_SIZE);
 
   MmioWrite32((UINTN)(Ufs->IoAddr + REG_UTP_TASK_REQ_LIST_BASE_L), (UINT32)(UINTN)Ufs->UtmrdAddr);
   MmioWrite32((UINTN)(Ufs->IoAddr + REG_UTP_TASK_REQ_LIST_BASE_H), (UINT32)((UINTN)Ufs->UtmrdAddr >> 32));
@@ -960,7 +986,11 @@ UfsInitInterface (
   Ufs->UicCmd = &LinkCmd;
   if(UfsSendUicCmd(Ufs))
   {
-    DEBUG((EFI_D_ERROR, "UFS link startup failed\n"));
+    DEBUG((EFI_D_ERROR, "UFS link startup failed (HCS = 0x%08x, IS = 0x%08x, UECPA = 0x%08x, UECDL = 0x%08x)\n",
+           MmioRead32((UINTN)(Ufs->IoAddr + REG_CONTROLLER_STATUS)),
+           MmioRead32((UINTN)(Ufs->IoAddr + REG_INTERRUPT_STATUS)),
+           MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER)),
+           MmioRead32((UINTN)(Ufs->IoAddr + REG_UIC_ERROR_CODE_DATA_LINK_LAYER))));
     return EFI_DEVICE_ERROR;
   }
 
@@ -1095,6 +1125,12 @@ struct UfsHost *UfsAllocHost (VOID)
 
   Ufs = AllocateZeroPool (sizeof (struct UfsHost));
   if (!Ufs) return NULL;
+
+  // Boards whose Controller counts Descriptor Offsets in Double Words clear this in UfsBoardInit
+  Ufs->Quirks = UFS_QUIRK_PRDT_BYTE_GRAN;
+
+  // Boards feeding the Device a different Reference Clock override this in UfsBoardInit
+  Ufs->RefClkFreq = UFS_REF_CLK_26_MHZ;
 
   Cal = AllocateZeroPool (sizeof (struct UfsCalParam));
   if (!Cal) goto Error;
@@ -1463,6 +1499,7 @@ InitUfsDriver (
 
     if (!Ufs->UnitDesc[Lun].bLUEnable)
     {
+      FreePool(Dev);
       continue;
     }
 
@@ -1472,6 +1509,7 @@ InitUfsDriver (
     if (EFI_ERROR(Status))
     {
       DEBUG((EFI_D_ERROR, "UFS LUN %d read capacity failed\n", Lun));
+      FreePool(Dev);
       continue;
     }
     
