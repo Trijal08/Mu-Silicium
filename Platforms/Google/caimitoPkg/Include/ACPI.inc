@@ -5,7 +5,7 @@
 !if $(ENABLE_SECUREBOOT) == 0
 #  SECTION RAW = S5P9875/DBG2.aml
 !endif
-#  SECTION RAW = komodo/DSDT.aml
+#  SECTION RAW = caimito/DSDT.aml
 #  SECTION RAW = Common/SSDT.aml
 #  SECTION RAW = S5P9875/FACP.aml
 #  SECTION RAW = S5P9875/FPDT.aml

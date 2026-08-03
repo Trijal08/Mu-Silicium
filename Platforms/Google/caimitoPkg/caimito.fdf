@@ -97,7 +97,17 @@ READ_LOCK_STATUS   = TRUE
   # Device Tree
   #INF EmbeddedPkg/Drivers/DtPlatformDxe/DtPlatformDxe.inf
   #FILE FREEFORM = 25462CDA-221F-47DF-AC1D-259CFAA4E326 {
-  #  SECTION RAW = komodoPkg/FdtBlob/s5p9875-samsung-komodo.dtb
+!if $(DEVICE_MODEL) == 0
+  #  SECTION RAW = caimitoPkg/FdtBlob/s5p9875-google-komodo.dtb
+!elseif $(DEVICE_MODEL) == 1
+  #  SECTION RAW = caimitoPkg/FdtBlob/s5p9875-google-caiman.dtb
+!elseif $(DEVICE_MODEL) == 2
+  #  SECTION RAW = caimitoPkg/FdtBlob/s5p9875-google-tokay.dtb
+!elseif $(DEVICE_MODEL) == 3
+  #  SECTION RAW = caimitoPkg/FdtBlob/s5p9875-google-tegu.dtb
+!elseif $(DEVICE_MODEL) == 4
+  #  SECTION RAW = caimitoPkg/FdtBlob/s5p9875-google-comet.dtb
+!endif
   #  SECTION UI = "DeviceTreeBlob"
   #}
 

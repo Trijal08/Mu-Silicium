@@ -14,15 +14,15 @@
 #
 ################################################################################
 [Defines]
-  PLATFORM_NAME                  = komodo
+  PLATFORM_NAME                  = caimito
   PLATFORM_GUID                  = 9146BB63-EE16-4238-A6C6-36472B925699
   PLATFORM_VERSION               = 0.1
   DSC_SPECIFICATION              = 0x00010005
-  OUTPUT_DIRECTORY               = Build/komodoPkg
+  OUTPUT_DIRECTORY               = Build/caimitoPkg
   SUPPORTED_ARCHITECTURES        = AARCH64
   BUILD_TARGETS                  = RELEASE|DEBUG
   SKUID_IDENTIFIER               = DEFAULT
-  FLASH_DEFINITION               = komodoPkg/komodo.fdf
+  FLASH_DEFINITION               = caimitoPkg/caimito.fdf
   USE_CUSTOM_DISPLAY_DRIVER      = 0
 
 !include S5P9875Pkg/S5P9875Pkg.dsc.inc
@@ -60,28 +60,64 @@
   # SMBIOS
   #
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemManufacturer|"Google"
+!if $(DEVICE_MODEL) == 0
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pixel 9 Pro XL"
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"komodo"
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"Pixel_9_Pro_XL_komodo"
   gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemBoardModel|"Pixel 9 Pro XL"
+!elseif $(DEVICE_MODEL) == 1
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pixel 9 Pro"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"caiman"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"Pixel_9_Pro_caiman"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemBoardModel|"Pixel 9 Pro"
+!elseif $(DEVICE_MODEL) == 2
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pixel 9"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"tokay"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"Pixel_9_tokay"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemBoardModel|"Pixel 9"
+!elseif $(DEVICE_MODEL) == 3
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pixel 9a"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"tegu"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"Pixel_9a_tegu"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemBoardModel|"Pixel 9a"
+!elseif $(DEVICE_MODEL) == 4
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemModel|"Pixel 9 Pro Fold"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailModel|"comet"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemRetailSku|"Pixel_9_Pro_Fold_comet"
+  gSiliciumPkgTokenSpaceGuid.PcdSmbiosSystemBoardModel|"Pixel 9 Pro Fold"
+!endif
 
   #
   # Simple Frame Buffer
   #
+!if $(DEVICE_MODEL) == 0
   gSiliciumPkgTokenSpaceGuid.PcdFrameBufferWidth|1344
   gSiliciumPkgTokenSpaceGuid.PcdFrameBufferHeight|2992
+!elseif $(DEVICE_MODEL) == 1
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferWidth|1280
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferHeight|2856
+!elseif $(DEVICE_MODEL) == 2
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferWidth|1080
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferHeight|2424
+!elseif $(DEVICE_MODEL) == 3
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferWidth|1080
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferHeight|2424
+!elseif $(DEVICE_MODEL) == 4
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferWidth|2076
+  gSiliciumPkgTokenSpaceGuid.PcdFrameBufferHeight|2152
+!endif
   gSiliciumPkgTokenSpaceGuid.PcdFrameBufferColorDepth|32
 
 [LibraryClasses]
   #
   # Memory Libraries
   #
-  MemoryMapLib|komodoPkg/Library/MemoryMapLib/MemoryMapLib.inf
+  MemoryMapLib|caimitoPkg/Library/MemoryMapLib/MemoryMapLib.inf
 
   #
   # Input Libraries
   #
-  KeypadDeviceLib|komodoPkg/Library/KeypadDeviceLib/KeypadDeviceLib.inf
+  KeypadDeviceLib|caimitoPkg/Library/KeypadDeviceLib/KeypadDeviceLib.inf
 
 [Components]
   #
