@@ -16,6 +16,7 @@
   SamsungPkg/SamsungPkg.dec
 
 [LibraryClasses]
+  TimerLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
   MemoryMapHelperLib
