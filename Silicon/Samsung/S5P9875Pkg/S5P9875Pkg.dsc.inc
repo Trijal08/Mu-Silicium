@@ -66,3 +66,7 @@
   #
   SerialPortLib|S5P9875Pkg/Library/SerialPortLib/SerialPortLib.inf
 
+  #
+  # Storage Libraries
+  #
+  PlatformUfsLib|S5P9875Pkg/Library/PlatformUfsLib/PlatformUfsLib.inf

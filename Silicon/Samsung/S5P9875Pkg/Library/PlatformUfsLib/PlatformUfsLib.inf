@@ -1,0 +1,25 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = PlatformUfsLib
+  FILE_GUID                      = 3C1B9E42-6D5A-4F81-9E27-58A0C4F7B316
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = PlatformUfsLib|DXE_DRIVER
+
+[Sources]
+  BoardInit.c
+  UfsCal.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  SamsungPkg/SamsungPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  TimerLib
+  UefiBootServicesTableLib
+  UfsCalAdapterLib
+
+[Protocols]
+  gEfiGpioProtocolGuid

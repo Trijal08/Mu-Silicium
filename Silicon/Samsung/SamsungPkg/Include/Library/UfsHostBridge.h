@@ -316,7 +316,32 @@ struct UfsHost
   struct UicPwrMode PmdCxt;
   UINT32 DevPwrShift;
   UINT32 GearMode;
+
+  //
+  // The Value programmed into the Device's bRefClkFreq Attribute. It has to
+  // agree with the Reference Clock the Board actually feeds the Device, or
+  // the Device's Clock Multiplier is wrong and High Speed Traffic fails while
+  // the slower Modes still work.
+  //
+  UINT32 RefClkFreq;
 };
+
+//
+// Quirks
+//
+// The Response UPIU and Physical Region Description Table Offsets and Lengths
+// in the Transfer Request Descriptor are counted in Double Words. Some Host
+// Controllers want them in Bytes instead.
+//
+#define UFS_QUIRK_PRDT_BYTE_GRAN (1U << 0)
+
+//
+// bRefClkFreq Values
+//
+#define UFS_REF_CLK_19_2_MHZ 0
+#define UFS_REF_CLK_26_MHZ   1
+#define UFS_REF_CLK_38_4_MHZ 2
+#define UFS_REF_CLK_52_MHZ   3
 
 INT32
 UfsSendUicCmd (struct UfsHost *Ufs);
