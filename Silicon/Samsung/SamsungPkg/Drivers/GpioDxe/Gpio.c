@@ -105,6 +105,11 @@ GpioSetState (
     return EFI_INVALID_PARAMETER;
   }
 
+  // Verify State Parameter
+  if (Enable == NULL) {
+    return EFI_INVALID_PARAMETER;
+  }
+
   // Get GPIO Bank
   EFI_GPIO_BANK *Bank = GetBank (BankId, BankNumber);
   if (Bank == NULL) {
@@ -114,8 +119,15 @@ GpioSetState (
   // Clear current GPIO Pin State
   MmioAnd32 ((UINTN)&Bank->dat, ~DAT_MASK (Pin));
 
+  //
   // Enable GPIO Pin
-  if (Enable) {
+  //
+  // Note the Dereference. This used to Test the Pointer rather than the Value
+  // behind it, so every Call with a Valid Pointer Drove the Pin High and a
+  // Caller could never Drive one Low. Nothing in the Tree Called this before, so
+  // no Platform depended on the old Behaviour.
+  //
+  if (*Enable) {
     MmioOr32 ((UINTN)&Bank->dat, DAT_SET (Pin));
   }
 
