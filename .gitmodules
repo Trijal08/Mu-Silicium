@@ -20,3 +20,7 @@
 	path = Silicon/Silicium/OpensslPkg/Library/OpensslLib/openssl
 	url = https://github.com/openssl/openssl.git
 	branch = 67b5686b4419b4cb8caa502711c41815f5279751
+[submodule "Common/SimpleInit"]
+	path = Common/SimpleInit
+	url = https://github.com/BigfootACA/simple-init.git
+	branch = master

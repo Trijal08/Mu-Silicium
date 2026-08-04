@@ -25,6 +25,19 @@
   FLASH_DEFINITION               = caimitoPkg/caimito.fdf
   USE_CUSTOM_DISPLAY_DRIVER      = 0
 
+  #
+  # Replaces the Text Boot Menu with Simple Init's Graphical one.
+  #
+  # A Platform opting in also has to add "Common/SimpleInit" to both
+  # PackagesPath and GetRequiredSubmodules in its DeviceBuild.py, and guard its
+  # own Firmware Volume Entry the same way this Platform's does. Platforms that
+  # never set this Define are unaffected.
+  #
+  # Note that Simple Init is LGPL v3 while the rest of this Tree is
+  # BSD-2-Clause-Patent.
+  #
+  USE_SIMPLE_INIT                = 1
+
 !include S5P9875Pkg/S5P9875Pkg.dsc.inc
 
 [PcdsFixedAtBuild]
@@ -53,7 +66,7 @@
   #
   # UEFI Stack
   #
-  gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase|0xA0212000
+  gArmPlatformTokenSpaceGuid.PcdCPUCoresStackBase|0xA0612000
   gArmPlatformTokenSpaceGuid.PcdCPUCorePrimaryStackSize|0x40000
 
   #
@@ -125,3 +138,52 @@
   #
   SiliciumPkg/Drivers/KeypadDxe/KeypadDxe.inf
   SiliciumPkg/Drivers/KeypadDeviceDxe/KeypadDeviceDxe.inf
+  caimitoPkg/Drivers/SynaTouchDxe/SynaTouchDxe.inf
+
+#
+# Simple Init. Its own Include resolves the Graphics Stack it needs, so the
+# Simple Init Root has to be on the Packages Path.
+#
+!if $(USE_SIMPLE_INIT) == 1
+!include SimpleInit.inc
+
+[LibraryClasses]
+  #
+  # Classes Simple Init needs that its own Include does not resolve.
+  #
+  BootLogoLib|MdeModulePkg/Library/BootLogoLib/BootLogoLib.inf
+
+[PcdsFixedAtBuild]
+  #
+  # Interface Scale, which Simple Init sizes its Icons, Text and Padding from.
+  #
+  # Simple Init Multiplies Real Lengths by this Number, and its own Default of Two
+  # Hundred is only an Unopinionated Fallback rather than a Target. Feeding it each
+  # Panel's Full Physical Density came out too Large and Dropping it near that
+  # Default came out too Small. The Figure for the Largest of these Panels was
+  # Settled by Eye on the Hardware and lands around Three Quarters of its Real
+  # Density. The rest Keep their Proportion to it and are Extrapolated rather than
+  # Tried, so they may want Adjusting on their own Hardware.
+  #
+  # This can also be Overridden at Runtime, without Rebuilding, through the
+  # "gui.dpi_force" Setting or a "dpi_force" Argument on the Command Line, which
+  # is the Easier Way to Settle on a Number that Looks right.
+  #
+!if $(DEVICE_MODEL) == 0
+  gSimpleInitTokenSpaceGuid.PcdGuiDefaultDPI|390
+!elseif $(DEVICE_MODEL) == 1
+  gSimpleInitTokenSpaceGuid.PcdGuiDefaultDPI|400
+!elseif $(DEVICE_MODEL) == 2
+  gSimpleInitTokenSpaceGuid.PcdGuiDefaultDPI|340
+!elseif $(DEVICE_MODEL) == 3
+  gSimpleInitTokenSpaceGuid.PcdGuiDefaultDPI|340
+!elseif $(DEVICE_MODEL) == 4
+  gSimpleInitTokenSpaceGuid.PcdGuiDefaultDPI|300
+!endif
+
+  #
+  # Point the Boot Manager Menu at Simple Init instead of the Text Menu. This
+  # is the FILE_GUID of SimpleInit/src/main/SimpleInitMain.inf.
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0xBB, 0xB2, 0x77, 0x6D, 0xEB, 0x69, 0xAB, 0x42, 0xBE, 0xCF, 0x4F, 0x40, 0xC8, 0x95, 0x68, 0xC3 }
+!endif

@@ -37,6 +37,7 @@ RESOURCE_SCRIPTS_PATH = Path ("Resources/Scripts")
 MU_PATH            = Path ("Common/Mu")
 MU_OEM_SAMPLE_PATH = Path ("Common/Mu_OEM_Sample")
 MU_BASECORE_PATH   = Path ("Mu_Basecore")
+SIMPLE_INIT_PATH   = Path ("Common/SimpleInit")
 
 @dataclass
 class BuildContext:
@@ -143,6 +144,49 @@ def cleanup_old_build (device: str, device_model: int, cleanup: bool):
     # Delete Old Build Files
     for old_build_file in old_build_files:
         old_build_file.unlink (missing_ok=True)
+
+
+def generate_simple_init_rootfs () -> bool:
+    """Builds the Root File System Sources that Simple Init compiles in.
+
+    Simple Init ships neither of them: a Host Tool packs its "root" Tree into a
+    Blob plus a C Descriptor. Upstream then wraps the Blob with the Host Linker,
+    which yields an Object of the Build Machine's own Format and Architecture.
+    This Tree builds with CLANGPDB, so an Assembly Stub using .incbin is
+    generated instead and the Patch alongside points the Module at it.
+    """
+
+    # Skip Devices without Simple Init
+    if not (SIMPLE_INIT_PATH / "SimpleInit.inc").is_file ():
+        return True
+
+    logger.info ("Generating Simple Init Root File System...")
+
+    # Set Paths
+    workspace  = SIMPLE_INIT_PATH.resolve ()
+    build_path = workspace / "build"
+    root_path  = workspace / "root"
+
+    # Create Build Directory
+    build_path.mkdir (parents = True, exist_ok = True)
+
+    # Generate Root File System Blob & Descriptor
+    result = subprocess.run (
+        ["bash", str (workspace / "scripts" / "gen-rootfs-source.sh"), str (workspace), str (build_path), str (root_path)],
+        env = {**os.environ, "NOBUILD": "1"},
+        capture_output = True
+    )
+
+    if result.returncode != 0:
+        logger.error ("Failed to Generate the Simple Init Root File System!")
+        logger.error (result.stderr.decode (errors = "replace"))
+        return False
+
+    # Generate the Assembly Stub that embeds the Blob
+    template = (workspace / "src" / "rootfs_data.s.in").read_text ()
+    (build_path / "rootfs_data.s").write_text (template.replace ("%DIR%", str (build_path)))
+
+    return True
 
 def handle_git_patch (submodule_path: Path, patch_name: str, remove: bool) -> bool:
     # Set Patch Path
@@ -506,6 +550,9 @@ def main ():
     for patch_name in ["Auth-Service.patch", "Boot-Manager.patch", "Timer.patch", "Usb-Bus.patch"]:
         handle_git_patch (MU_BASECORE_PATH, patch_name, True)
 
+    # Remove Simple Init Patches
+    handle_git_patch (SIMPLE_INIT_PATH, "Simple-Init-Rootfs.patch", True)
+
     # Update Local Repo
     if ctx.update:
         if not update_local_repo ():
@@ -526,6 +573,14 @@ def main ():
     # Apply Mu_Basecore Patches
     for patch_name in ["Auth-Service.patch", "Boot-Manager.patch", "Timer.patch", "Usb-Bus.patch"]:
         if not handle_git_patch (MU_BASECORE_PATH, patch_name, False):
+            sys.exit (1)
+
+    # Apply Simple Init Patches & Generate its Root File System
+    if (SIMPLE_INIT_PATH / "SimpleInit.inc").is_file ():
+        if not handle_git_patch (SIMPLE_INIT_PATH, "Simple-Init-Rootfs.patch", False):
+            sys.exit (1)
+
+        if not generate_simple_init_rootfs ():
             sys.exit (1)
 
     # Compile Device UEFI
