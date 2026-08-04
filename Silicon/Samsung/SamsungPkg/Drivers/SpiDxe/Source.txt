@@ -1,0 +1,6 @@
+REPO:   https://github.com/torvalds/linux/
+BRANCH: master
+FILES:  drivers/spi/spi-s3c64xx.c
+REPO:   https://github.com/torvalds/linux/
+BRANCH: master
+FILES:  drivers/soc/samsung/exynos-usi.c

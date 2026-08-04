@@ -58,6 +58,7 @@
   SamsungPkg/Drivers/GpioDxe/GpioDxe.inf
   SamsungPkg/Drivers/SpeedyDxe/SpeedyDxe.inf
   SamsungPkg/Drivers/HsI2cDxe/HsI2cDxe.inf
+  SamsungPkg/Drivers/SpiDxe/SpiDxe.inf
 
   #
   # Power Management Drivers

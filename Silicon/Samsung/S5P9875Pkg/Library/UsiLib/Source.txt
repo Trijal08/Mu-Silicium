@@ -1,0 +1,6 @@
+REPO:   https://github.com/torvalds/linux/
+BRANCH: master
+FILES:  arch/arm64/boot/dts/exynos/google/zumapro.dtsi
+REPO:   https://github.com/torvalds/linux/
+BRANCH: master
+FILES:  drivers/soc/samsung/exynos-usi.c
