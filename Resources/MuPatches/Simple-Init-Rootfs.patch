@@ -1,0 +1,592 @@
+diff --git a/SimpleInit.inc b/SimpleInit.inc
+index c2468b2d..70ec71c6 100644
+--- a/SimpleInit.inc
++++ b/SimpleInit.inc
+@@ -1,3 +1,20 @@
++[BuildOptions]
++  #
++  # EDK2's CLANGPDB Tool Chain builds for a Windows Target, which turns on
++  # Clang's Microsoft Compatibility Mode. That Mode resolves a quoted Include
++  # against the Directory of every File on the Include Stack rather than just
++  # the Directory of the including File, so "include/gui/lua.h" shadows the
++  # Lua Header that "include/xlua.h" asks for. Standard Search Rules pick the
++  # right one.
++  #
++  #
++  # Third Party Code in this Tree does not build clean under EDK2's -Werror.
++  # These relax Cosmetic Warning Classes only. -Werror itself stays on, and
++  # Warnings that point at real Portability Problems, such as an implicitly
++  # declared Function standing for a missing C Library Routine, stay Errors.
++  #
++  *_CLANGPDB_AARCH64_CC_FLAGS = -fno-ms-compatibility -Wno-self-assign -Wno-non-literal-null-conversion -Wno-unused-function -Wno-sign-compare -Wno-misleading-indentation -Wno-tautological-pointer-compare -Wno-string-plus-int -Wno-enum-conversion -Wno-pointer-sign -Wno-unused-but-set-variable
++
+ [LibraryClasses]
+   STBLib|libs/stb/STBLib.inf
+   Zlib|libs/zlib/Zlib.inf
+@@ -27,7 +44,7 @@
+   SimpleInitConfd|src/confd/SimpleInitConfd.inf
+   SimpleInitRootFS|src/SimpleInitRootFS.inf
+   KernelFdtDxe|src/kernelfdt/KernelFdtDxe.inf
+-  FdtLib|EmbeddedPkg/Library/FdtLib/FdtLib.inf
++  FdtLib|MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
+ 
+ [Components]
+   libs/stb/STBLib.inf
+@@ -58,4 +75,11 @@
+   src/confd/SimpleInitConfd.inf
+   src/SimpleInitRootFS.inf
+   src/main/SimpleInitMain.inf
+-  src/kernelfdt/KernelFdtDxe.inf
++  #
++  # KernelFdtDxe is left out. It is a standalone Driver that is not placed in
++  # any Firmware Volume here, and it cannot link on its own: it pulls in
++  # libs/compatible, whose exit.c refers to main_retval and main_exit, and only
++  # src/main/uefimain.c defines those. Nothing consumes its Library Class
++  # either. edk2-msm likewise adds it only when a Platform asks for it.
++  #
++  # src/kernelfdt/KernelFdtDxe.inf
+diff --git a/libs/compatible/SimpleInitCompatible.inf b/libs/compatible/SimpleInitCompatible.inf
+index 4bf75122..293ffb41 100644
+--- a/libs/compatible/SimpleInitCompatible.inf
++++ b/libs/compatible/SimpleInitCompatible.inf
+@@ -38,6 +38,7 @@
+   exit.c
+   number.c
+   stub.c
++  uefi-gaps.c
+   qsort.c
+   ctype.c
+   fvwrite.c
+diff --git a/libs/compatible/include/arch/aarch64/bits/alltypes.h b/libs/compatible/include/arch/aarch64/bits/alltypes.h
+index 0f4c6538..876585cd 100644
+--- a/libs/compatible/include/arch/aarch64/bits/alltypes.h
++++ b/libs/compatible/include/arch/aarch64/bits/alltypes.h
+@@ -1,6 +1,19 @@
++/*
++ * AArch64 has two Data Models. ELF Targets are LP64, where long is 64-bit.
++ * The Windows Target that EDK2's CLANGPDB Tool Chain uses is LLP64, where
++ * long is 32-bit and only long long is 64-bit. musl parameterises every
++ * Type in this File through the three Macros below for exactly this Reason,
++ * so selecting them by the actual Size of long covers both.
++ */
++#if defined(__SIZEOF_LONG__) && __SIZEOF_LONG__ == 4
++#define _Addr long long
++#define _Int64 long long
++#define _Reg long long
++#else
+ #define _Addr long
+ #define _Int64 long
+ #define _Reg long
++#endif
+ 
+ #if __AARCH64EB__
+ #define __BYTE_ORDER 4321
+@@ -8,7 +21,11 @@
+ #define __BYTE_ORDER 1234
+ #endif
+ 
++#if defined(__SIZEOF_LONG__) && __SIZEOF_LONG__ == 4
++#define __LONG_MAX 0x7fffffffL
++#else
+ #define __LONG_MAX 0x7fffffffffffffffL
++#endif
+ 
+ #ifndef __cplusplus
+ #if defined(__NEED_wchar_t) && !defined(__DEFINED_wchar_t)
+diff --git a/libs/compatible/malloc.c b/libs/compatible/malloc.c
+index f550e40d..b3862a9d 100644
+--- a/libs/compatible/malloc.c
++++ b/libs/compatible/malloc.c
+@@ -167,21 +167,32 @@ free(void *Ptr)
+ {
+ 	CPOOL_HEAD   *Head;
+ 
++	//
++	// free(NULL) is defined to do nothing, and this Test has to come BEFORE
++	// BASE_CR derives a Pointer from Ptr. Subtracting from a Null Pointer is
++	// Undefined Behaviour, so with -flto -Oz the Compiler is entitled to infer
++	// from that Arithmetic that Ptr cannot be Null, and it then deletes the
++	// "if (Ptr != NULL)" Guard that used to sit below. The Result was that
++	// free(NULL) read Head->Signature at Ptr - 32 + 0x10, faulting on
++	// 0xFFFFFFFFFFFFFFF0. Lua reaches this through l_alloc, which calls
++	// free(Ptr) whenever nsize is 0, from luaH_resize during luaopen_base, so
++	// the GUI aborted before it drew anything. realloc below already orders
++	// its own Test correctly.
++	//
++	if (Ptr == NULL) return;
++
+ 	Head = BASE_CR(Ptr, CPOOL_HEAD, Data);
+-	assert(Head != NULL);
+ 	DEBUG((DEBUG_POOL, "free(%p): Head: %p\n", Ptr, Head));
+ 
+-	if(Ptr != NULL) {
+-		if (Head->Signature == CPOOL_HEAD_SIGNATURE) {
+-			(void) RemoveEntryList((LIST_ENTRY *)Head);   // Remove this node from the malloc pool
+-			(void) gBS->FreePool (Head);                  // Now free the associated memory
+-		}
+-		else {
+-			errno = EFAULT;
+-			DEBUG((DEBUG_ERROR, "ERROR free(0x%p): Signature is 0x%8X, expected 0x%8X\n",
+-				Ptr, Head->Signature, CPOOL_HEAD_SIGNATURE));
+-			abort();
+-		}
++	if (Head->Signature == CPOOL_HEAD_SIGNATURE) {
++		(void) RemoveEntryList((LIST_ENTRY *)Head);   // Remove this node from the malloc pool
++		(void) gBS->FreePool (Head);                  // Now free the associated memory
++	}
++	else {
++		errno = EFAULT;
++		DEBUG((DEBUG_ERROR, "ERROR free(0x%p): Signature is 0x%8X, expected 0x%8X\n",
++			Ptr, Head->Signature, CPOOL_HEAD_SIGNATURE));
++		abort();
+ 	}
+ 	DEBUG((DEBUG_POOL, "free Done\n"));
+ }
+diff --git a/libs/compatible/uefi-gaps.c b/libs/compatible/uefi-gaps.c
+new file mode 100644
+index 00000000..c8ad9cea
+--- /dev/null
++++ b/libs/compatible/uefi-gaps.c
+@@ -0,0 +1,128 @@
++/*
++ * Routines this Compatibility Layer declares in its own Headers but never
++ * implements, plus the POSIX File Descriptor Calls that Third Party Code in
++ * this Tree reaches for. Nothing here existed before, so every Definition is
++ * a strong one; stub.c keeps the weak ones it needs to override.
++ *
++ * The File Descriptor Calls fail with ENOSYS on Purpose. Firmware has no File
++ * Descriptor Table, and Simple Init does its real Input and Output through the
++ * fs_ Layer in src/filesystem rather than through these. They are referenced
++ * only by Paths that are not taken here: json-c's json_util.c, mxml's
++ * mxml-file.c and src/filesystem/utils.c.
++ *
++ * Note that stub.c's fwrite treats its Buffer as NUL terminated, so every
++ * Buffer handed to it below is terminated.
++ */
++
++#include <Library/DebugLib.h>
++#include <Library/UefiBootServicesTableLib.h>
++#include "stdio.h"
++#include "stdlib.h"
++#include "string.h"
++#include "errno.h"
++#include "time.h"
++#include "unistd.h"
++#include "fcntl.h"
++
++extern ssize_t full_write (int fd, void *data, size_t len);
++
++int fputc (int c, FILE *f) {
++	unsigned char b[2];
++	b[0] = (unsigned char)c, b[1] = 0;
++	fwrite (b, 1, 1, f);
++	return (int)b[0];
++}
++
++int putc (int c, FILE *f) {
++	return fputc (c, f);
++}
++
++int puts (const char *s) {
++	if (!s) return EOF;
++	if (*s) fwrite (s, 1, strlen (s), stdout);
++	fwrite ("\n", 1, 1, stdout);
++	return 0;
++}
++
++void *bsearch (
++	const void *key,
++	const void *base,
++	size_t      nmemb,
++	size_t      size,
++	int       (*compar)(const void *, const void *)
++) {
++	const char *b = base;
++	while (nmemb > 0) {
++		size_t      mid = nmemb / 2;
++		const char *cur = b + mid * size;
++		int         cmp = compar (key, cur);
++		if (cmp == 0) return (void *)cur;
++		if (cmp > 0) b = cur + size, nmemb -= mid + 1;
++		else nmemb = mid;
++	}
++	return NULL;
++}
++
++/* asctime is called by this Layer's own ctime, in time.c. */
++char *asctime (const struct tm *tm) {
++	static const char *const wday[] = {
++		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
++	};
++	static const char *const mon[] = {
++		"Jan", "Feb", "Mar", "Apr", "May", "Jun",
++		"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
++	};
++	static char buf[32];
++	if (!tm) return NULL;
++	if (tm->tm_wday < 0 || tm->tm_wday > 6) return NULL;
++	if (tm->tm_mon  < 0 || tm->tm_mon  > 11) return NULL;
++	snprintf (
++		buf, sizeof (buf), "%s %s %2d %02d:%02d:%02d %d\n",
++		wday[tm->tm_wday], mon[tm->tm_mon], tm->tm_mday,
++		tm->tm_hour, tm->tm_min, tm->tm_sec, tm->tm_year + 1900
++	);
++	return buf;
++}
++
++int usleep (unsigned useconds) {
++	if (gBS) gBS->Stall (useconds);
++	return 0;
++}
++
++static int unsupported (const char *name) {
++	DEBUG ((EFI_D_ERROR, "try to call unsupported %a\n", name));
++	errno = ENOSYS;
++	return -1;
++}
++
++int open (const char *path __attribute__((unused)), int flags __attribute__((unused)), ...) {
++	return unsupported ("open");
++}
++
++int close (int fd __attribute__((unused))) {
++	return unsupported ("close");
++}
++
++ssize_t read (
++	int    fd  __attribute__((unused)),
++	void  *buf __attribute__((unused)),
++	size_t len __attribute__((unused))
++) {
++	return unsupported ("read");
++}
++
++ssize_t write (
++	int         fd  __attribute__((unused)),
++	const void *buf __attribute__((unused)),
++	size_t      len __attribute__((unused))
++) {
++	return unsupported ("write");
++}
++
++ssize_t full_write (
++	int    fd   __attribute__((unused)),
++	void  *data __attribute__((unused)),
++	size_t len  __attribute__((unused))
++) {
++	return unsupported ("full_write");
++}
+diff --git a/libs/libzip/ZipLib.inf b/libs/libzip/ZipLib.inf
+index 98bc8f11..7ebd478b 100644
+--- a/libs/libzip/ZipLib.inf
++++ b/libs/libzip/ZipLib.inf
+@@ -97,6 +97,7 @@
+   libs/libzip/lib/zip_source_crc.c
+   libs/libzip/lib/zip_source_error.c
+   libs/libzip/lib/zip_source_file_common.c
++  libs/libzip/lib/zip_source_file_uefi.c
+   libs/libzip/lib/zip_source_free.c
+   libs/libzip/lib/zip_source_function.c
+   libs/libzip/lib/zip_source_get_file_attributes.c
+diff --git a/libs/libzip/lib/zip_source_file_uefi.c b/libs/libzip/lib/zip_source_file_uefi.c
+new file mode 100644
+index 00000000..8f6f778e
+--- /dev/null
++++ b/libs/libzip/lib/zip_source_file_uefi.c
+@@ -0,0 +1,25 @@
++/*
++ * zip_source_file_create opens an Archive by Path Name through stdio. That
++ * cannot work in Firmware: the Compatibility Layer's fopen returns ENOSYS, and
++ * the Files that carry the real Implementation, zip_source_file_stdio.c and
++ * zip_source_file_stdio_named.c, need fileno, fstat, stat, rename and remove,
++ * none of which exist here. Simple Init opens Archives through
++ * zip_source_buffer and its own fs_ Layer instead, so this reports that the
++ * Operation is not supported rather than pulling that Dependency Chain in.
++ */
++
++#include "zipint.h"
++
++ZIP_EXTERN zip_source_t *
++zip_source_file_create (
++	const char   *fname,
++	zip_uint64_t  start,
++	zip_int64_t   length,
++	zip_error_t  *error
++) {
++	(void)fname;
++	(void)start;
++	(void)length;
++	zip_error_set (error, ZIP_ER_OPNOTSUPP, 0);
++	return NULL;
++}
+diff --git a/src/SimpleInitRootFS.inf b/src/SimpleInitRootFS.inf
+index 6c4ee399..8bb4613b 100644
+--- a/src/SimpleInitRootFS.inf
++++ b/src/SimpleInitRootFS.inf
+@@ -21,4 +21,4 @@
+   # Simple-Init builtin rootfs generate from ./root (RUN BEFORE BUILD)
+   # bash scripts/gen-rootfs-source.sh ./ ./build ./root
+   ../build/rootfs.c
+-  ../build/rootfs_data.o
++  ../build/rootfs_data.s
+diff --git a/src/config-uefi.h b/src/config-uefi.h
+index 440d90d7..ba3ad119 100644
+--- a/src/config-uefi.h
++++ b/src/config-uefi.h
+@@ -16,3 +16,36 @@
+ #define FT_CONFIG_OPTIONS_H "libs/freetype-uefi/ftoption.h"
+ #define LV_CONF_PATH        lv_conf.h
+ #define LODEPNG_NO_COMPILE_DISK
++
++/*
++ * EDK2's CLANGPDB Tool Chain builds for aarch64-unknown-windows-msvc purely
++ * to get PE/COFF Objects out of Clang. That Target defines the usual Windows
++ * Identity Macros, and EDK2 adds "-D __MINGW32__=1" on Top so its own Headers
++ * treat the Compiler as GCC-like. None of that describes the Environment this
++ * Code actually runs in: it is Firmware, and the POSIX Surface it wants comes
++ * from libs/compatible rather than from Windows or from MinGW.
++ *
++ * Left defined, vendored Third Party Code takes its Windows Path and either
++ * calls a Runtime that is not linked in (libs/stb/stb_leakcheck.h reaches for
++ * __mingw_fprintf) or skips the POSIX Header it needs (libs/mxml/mxml-file.c
++ * guards <unistd.h> behind !_WIN32, then calls read and write).
++ *
++ * Every Module in this Tree force-includes this Header before anything else,
++ * so undefining them here reaches all of them and no EDK2 Module.
++ *
++ * _WIN64 is deliberately LEFT ALONE, because Third Party Code reads the two
++ * Macros as different Claims. _WIN32 asserts that the Operating System is
++ * Windows, which is false here. _WIN64 asserts that the Data Model is LLP64,
++ * which is true here and is the whole Reason this File exists. FreeType is the
++ * clear Example: compiler-macros.h picks its Integer to Pointer Cast off
++ * _WIN64 with the Comment "only 64bit Windows uses the LLP64 data model", and
++ * with _WIN64 undefined it casts through a 32-bit unsigned long and truncates
++ * every Pointer it stores.
++ */
++#ifdef _WIN32
++#undef _WIN32
++#endif
++
++#ifdef __MINGW32__
++#undef __MINGW32__
++#endif
+diff --git a/src/gui/SimpleInitGUI.inf b/src/gui/SimpleInitGUI.inf
+index 6107fc80..be98dd5d 100644
+--- a/src/gui/SimpleInitGUI.inf
++++ b/src/gui/SimpleInitGUI.inf
+@@ -60,7 +60,6 @@
+   gEfiSimplePointerProtocolGuid
+   gEfiSimpleTextInProtocolGuid
+   gEfiGraphicsOutputProtocolGuid
+-  gEfiUgaDrawProtocolGuid
+   gEfiLoadedImageProtocolGuid
+   gEfiSimpleFileSystemProtocolGuid
+   gEfiTimestampProtocolGuid
+@@ -84,7 +83,6 @@
+   drivers/modes.c
+   drivers/dummy.c
+   drivers/uefi_gop.c
+-  drivers/uefi_uga.c
+   drivers/uefi_pointer.c
+   drivers/uefi_keyboard.c
+   drivers/uefi_touch.c
+diff --git a/src/gui/drivers.c b/src/gui/drivers.c
+index 2052e8f0..6f585701 100644
+--- a/src/gui/drivers.c
++++ b/src/gui/drivers.c
+@@ -17,7 +17,6 @@ extern struct gui_driver guidrv_vnc;
+ extern struct gui_driver guidrv_http;
+ extern struct gui_driver guidrv_fbdev;
+ extern struct gui_driver guidrv_uefigop;
+-extern struct gui_driver guidrv_uefiuga;
+ extern struct input_driver indrv_uefi_kbd;
+ extern struct input_driver indrv_uefi_touch;
+ extern struct input_driver indrv_uefi_pointer;
+@@ -33,7 +32,6 @@ extern struct input_driver indrv_event;
+ struct gui_driver*gui_drvs[]={
+ 	#ifdef ENABLE_UEFI
+ 	&guidrv_uefigop,
+-	&guidrv_uefiuga,
+ 	#else
+ 	#ifdef ENABLE_GTK
+ 	&guidrv_gtk,
+diff --git a/src/gui/drivers/uefi_touch.c b/src/gui/drivers/uefi_touch.c
+index a711161a..15158444 100644
+--- a/src/gui/drivers/uefi_touch.c
++++ b/src/gui/drivers/uefi_touch.c
+@@ -30,6 +30,7 @@ static list*touchs;
+ static lv_indev_drv_t drv;
+ static lv_indev_t*dev;
+ static INT64 lx=0,ly=0;
++static lv_indev_state_t last_state=LV_INDEV_STATE_REL;
+ struct input_data{
+ 	INT64 lx,ly,rx,ry;
+ 	EFI_ABSOLUTE_POINTER_PROTOCOL*touch;
+@@ -54,16 +55,28 @@ static void touch_read(lv_indev_drv_t*indev_drv,lv_indev_data_t*data){
+ 			continue;
+ 		}
+ 		if(EFI_ERROR(d->touch->GetState(d->touch,&p)))continue;
+-		if(p.CurrentX==d->lx&&p.CurrentY==d->ly)continue;
+ 		lx=((double)p.CurrentX/(double)d->rx)*gui_w;
+ 		ly=((double)p.CurrentY/(double)d->ry)*gui_h;
+ 		d->lx=p.CurrentX,d->ly=p.CurrentY;
+-		data->state=LV_INDEV_STATE_PR;
++		/*
++		 * Take the press state from the protocol instead of guessing it from
++		 * whether the coordinates moved. A finger held still reports the same
++		 * position, and a genuine absolute pointer says so in ActiveButtons.
++		 */
++		last_state=p.ActiveButtons?LV_INDEV_STATE_PR:LV_INDEV_STATE_REL;
+ 		data->continue_reading=true;
+ 		break;
+ 	}while((l=n));
+ 	data->point.x=lx;
+ 	data->point.y=ly;
++	/*
++	 * Report the remembered state even when no device had anything new. LVGL
++	 * zeroes this structure before every read, so leaving the field alone means
++	 * released, and a poll that outruns the panel's report rate would then break
++	 * a drag into a burst of taps. That is what made swiping activate whatever
++	 * button happened to be under the finger.
++	 */
++	data->state=last_state;
+ }
+ static bool proto_cmp(list*f,void*data){
+ 	LIST_DATA_DECLARE(d,f,struct input_data*);
+diff --git a/src/gui/gui_init.c b/src/gui/gui_init.c
+index 136d0a50..f977b366 100644
+--- a/src/gui/gui_init.c
++++ b/src/gui/gui_init.c
+@@ -103,7 +103,7 @@ lua_State*gui_global_lua;
+ mutex_t gui_lock;
+ 
+ // usable gui fontsize
+-static int font_sizes[]={10,16,24,32,48,64,72,96};
++static int font_sizes[]={10,16,24,32,40,48,64,72,96};
+ 
+ // run on exit
+ static runnable_t*run_exit=NULL;
+@@ -150,16 +150,26 @@ void gui_quit_sleep(){
+ 
+ void guess_font_size(){
+ 	//                        DPI     Font Size
++	/*
++	 * The step from 32 to 48 used to span every density from 351 to 450, so a
++	 * panel landing anywhere in there got the same text however the dpi was
++	 * nudged, while the icons and padding around it kept scaling smoothly.
++	 * Nothing could be balanced against anything. A 40 sits in the gap now and
++	 * that range is split around it.  Sizes are rendered by freetype at run
++	 * time, so no extra font asset is involved.
++	 */
+ 	int i=0;            //   0 -  50 : 10
+ 	if(gui_dpi>50)i++;  //  51 - 150 : 16
+ 	if(gui_dpi>150)i++; // 151 - 250 : 24
+ 	if(gui_dpi>250)i++; // 251 - 350 : 32
+-	if(gui_dpi>350)i++; // 351 - 450 : 48
++	if(gui_dpi>350)i++; // 351 - 400 : 40
++	if(gui_dpi>400)i++; // 401 - 450 : 48
+ 	if(gui_dpi>450)i++; // 451 - 550 : 64
+ 	if(gui_dpi>550)i++; // >= 551    : 72
+ 
+ 	gui_font_size=font_sizes[i];
+-	gui_font_size_small=font_sizes[i-1];
++	/* font_sizes[i-1] would read off the front of the array when i is zero */
++	gui_font_size_small=font_sizes[i>0?i-1:0];
+ 	tlog_debug("select font size %d/%d based on dpi",gui_font_size,gui_font_size_small);
+ }
+ 
+diff --git a/src/gui/interface/core/splash.c b/src/gui/interface/core/splash.c
+index e24c19f4..be593400 100644
+--- a/src/gui/interface/core/splash.c
++++ b/src/gui/interface/core/splash.c
+@@ -37,7 +37,12 @@ static bool draw_edk2_logo(lv_obj_t*obj){
+ 	if(dsc.data)free((void*)dsc.data);
+ 	memset(&dsc,0,sizeof(dsc));
+ 	st=gBS->LocateProtocol(&gEdkiiPlatformLogoProtocolGuid,NULL,(VOID**)&plogo);
+-	if(EFI_ERROR(st)&&plogo){
++	// Was "EFI_ERROR(st)&&plogo", which can never be true: LocateProtocol
++	// leaves plogo NULL exactly when it fails, so the Guard was skipped on
++	// Failure and plogo->GetImage below dereferenced NULL. Only Platforms that
++	// produce no gEdkiiPlatformLogoProtocolGuid reach it, and this one has no
++	// LogoDxe in its Firmware Volume.
++	if(EFI_ERROR(st)||!plogo){
+ 		tlog_debug(
+ 			"get edk2 platform logo protocol failed: %s",
+ 			efi_status_to_string(st)
+diff --git a/src/linux-boot/SimpleInitBootLinux.inf b/src/linux-boot/SimpleInitBootLinux.inf
+index ad0682db..dce05036 100644
+--- a/src/linux-boot/SimpleInitBootLinux.inf
++++ b/src/linux-boot/SimpleInitBootLinux.inf
+@@ -21,7 +21,6 @@
+ 
+ [LibraryClasses.ARM, LibraryClasses.AARCH64]
+   ArmLib
+-  ArmGicLib
+   CacheMaintenanceLib
+ 
+ [LibraryClasses]
+diff --git a/src/linux-boot/arm.c b/src/linux-boot/arm.c
+index d11dbb74..45644da4 100644
+--- a/src/linux-boot/arm.c
++++ b/src/linux-boot/arm.c
+@@ -21,41 +21,29 @@
+ #include"internal.h"
+ #define TAG "linux-arm"
+ 
+-typedef VOID (*ARM_V7_CACHE_OPERATION)(UINTN);
+-typedef VOID (*AARCH64_CACHE_OPERATION)(UINTN);
+-extern VOID ArmV7DataCacheOperation(IN ARM_V7_CACHE_OPERATION DataCacheOperation);
+-extern VOID AArch64DataCacheOperation(IN AARCH64_CACHE_OPERATION DataCacheOperation);
+-extern VOID EFIAPI ArmInvalidateDataCacheEntryBySetWay(IN UINTN SetWayFormat);
+-extern VOID EFIAPI ArmCleanDataCacheEntryBySetWay(IN UINTN SetWayFormat);
+-#if defined(__arm__)
+-#define DataCacheOperation ArmV7DataCacheOperation
+-#elif defined(__aarch64__)
+-#define DataCacheOperation AArch64DataCacheOperation
+-#endif
+-
+-static VOID EFIAPI ArmInvalidateDataCacheInternal(VOID){
+-	// FUCK ASSERT
+-	ArmDataSynchronizationBarrier();
+-	DataCacheOperation(ArmInvalidateDataCacheEntryBySetWay);
+-}
+-
+-static VOID EFIAPI ArmCleanDataCacheInternal(VOID){
+-	// FUCK ASSERT
+-	ArmDataSynchronizationBarrier();
+-	DataCacheOperation(ArmCleanDataCacheEntryBySetWay);
+-}
+-
++/*
++ * Upstream cleaned and then invalidated the whole Data Cache by Set and Way,
++ * reaching into ArmPkg Internals to do it, because CacheMaintenanceLib's
++ * WriteBackDataCache and InvalidateDataCache are ASSERT(FALSE) Stubs on ARM.
++ * That is what the "FUCK ASSERT" Comments here used to be about.
++ *
++ * Mu Basecore carries no Set and Way Cache Maintenance anywhere, so those
++ * Internals do not exist to call. ArmDisableCachesAndMmu clears the M, C and I
++ * Bits of SCTLR behind a Barrier, which covers the Part that a Kernel Handover
++ * requires.
++ *
++ * It does NOT write dirty Lines back first. Writing that Loop by Hand has to
++ * handle FEAT_CCIDX on this ARMv9.2 Part, where CCSIDR moves NumSets up to Bits
++ * 55:32, and reading the Geometry wrong under-cleans and leaves a corrupt Image
++ * behind. So Simple Init's own direct Linux Boot Path is UNVALIDATED until that
++ * Loop is written and tested. Reaching and drawing the Boot Menu does not go
++ * through here.
++ */
+ static void platform_cleanup(linux_boot*lb){
+ 	DEBUG((EFI_D_INFO,"boot: cleanup platform...\n"));
+ 
+-	ArmCleanDataCacheInternal();
+-	ArmDisableDataCache();
+-	ArmInvalidateDataCacheInternal();
+-
+-	ArmDisableInstructionCache();
++	ArmDisableCachesAndMmu();
+ 	ArmInvalidateInstructionCache();
+-
+-	ArmDisableMmu();
+ }
+ 
+ static void exit_boot_services(void){

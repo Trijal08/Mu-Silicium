@@ -33,10 +33,12 @@ class CommonPlatform ():
         "Platforms/Google",
         "Common/Mu",
         "Common/Mu_OEM_Sample",
+        "Common/SimpleInit",
         "Mu_Basecore",
         "Silicon/Samsung",
         "Silicon/Silicium",
         "Silicium-ACPI",
+        "Silicium-ACPI/Platforms/Google",
         "Silicium-ACPI/Platforms/Samsung",
         "Silicium-ACPI/SoCs/Samsung"
     )
@@ -60,6 +62,7 @@ class SettingsManager (UpdateSettingsManager, SetupSettingsManager, PrEvalSettin
             RequiredSubmodule ("Binaries", True),
             RequiredSubmodule ("Common/Mu", True),
             RequiredSubmodule ("Common/Mu_OEM_Sample", True),
+            RequiredSubmodule ("Common/SimpleInit", True),
             RequiredSubmodule ("Mu_Basecore", True),
             RequiredSubmodule ("Silicium-ACPI", True),
             RequiredSubmodule ("Silicon/Silicium/OpensslPkg/Library/OpensslLib/openssl", True)
