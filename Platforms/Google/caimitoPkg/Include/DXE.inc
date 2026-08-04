@@ -26,6 +26,7 @@
   INF SamsungPkg/Drivers/GpioDxe/GpioDxe.inf
   INF SamsungPkg/Drivers/UsiDxe/UsiDxe.inf
   INF SamsungPkg/Drivers/HsI2cDxe/HsI2cDxe.inf
+  INF SamsungPkg/Drivers/SpiDxe/SpiDxe.inf
   INF SamsungPkg/Drivers/PmicDxe/PmicDxe.inf
 
   INF MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
@@ -41,7 +42,8 @@
 !endif
   INF SiliciumPkg/Drivers/KeypadDeviceDxe/KeypadDeviceDxe.inf
   INF SiliciumPkg/Drivers/KeypadDxe/KeypadDxe.inf
+  INF caimitoPkg/Drivers/SynaTouchDxe/SynaTouchDxe.inf
 
-  INF SamsungPkg/Drivers/RngDxe/RngDxe.inf
+  INF SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf
 
   INF MdeModulePkg/Universal/BdsDxe/BdsDxe.inf

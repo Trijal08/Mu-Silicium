@@ -1,0 +1,30 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SpiDxe
+  FILE_GUID                      = 3F6A2D48-7B15-4C93-9E52-8A1D4F60C3B7
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = RegisterSpi
+
+[Sources]
+  Spi.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+  SamsungPkg/SamsungPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Protocols]
+  gEfiUsiProtocolGuid
+  gEfiSpiProtocolGuid
+
+[Depex]
+  gEfiUsiProtocolGuid

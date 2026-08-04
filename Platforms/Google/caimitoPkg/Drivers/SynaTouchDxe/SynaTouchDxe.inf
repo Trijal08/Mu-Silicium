@@ -1,0 +1,34 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SynaTouchDxe
+  FILE_GUID                      = D45B71A8-3C02-4E6F-9B18-57A2E6D4C019
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = RegisterSynaTouch
+
+[Sources]
+  SynaTouch.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+  SamsungPkg/SamsungPkg.dec
+
+[LibraryClasses]
+  AcpmLib
+  BaseMemoryLib
+  DebugLib
+  IoLib
+  MemoryAllocationLib
+  TimerLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiSpiProtocolGuid
+  gEfiGpioProtocolGuid
+  gEfiAbsolutePointerProtocolGuid
+
+[Depex]
+  gEfiSpiProtocolGuid AND gEfiGpioProtocolGuid

@@ -1,0 +1,26 @@
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = AcpmLib
+  FILE_GUID                      = 7E4C1D93-6A82-45BF-9C31-08D5B72E4A61
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = AcpmLib|DXE_DRIVER
+
+[Sources]
+  Acpm.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  SamsungPkg/SamsungPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  DebugLib
+  IoLib
+  PcdLib
+  TimerLib
+
+[FixedPcd]
+  gSamsungPkgTokenSpaceGuid.PcdAcpmSramBase
+  gSamsungPkgTokenSpaceGuid.PcdAcpmMailboxBase
+  gSamsungPkgTokenSpaceGuid.PcdAcpmInitDataOffset
