@@ -31,7 +31,13 @@
 // GPIO DAT
 //
 #define DAT_MASK(x)                   (1 << (x))
-#define DAT_SET(x)                    (0 << (x))
+
+//
+// This used to Shift Zero, which made it Evaluate to Zero for every Pin. The
+// Caller Ored that into the Data Register and Nothing happened, so GpioSetState
+// could Clear a Pin but never Set one and every Output was Stuck Low.
+//
+#define DAT_SET(x)                    (1 << (x))
 
 //
 // GPIO Pull
