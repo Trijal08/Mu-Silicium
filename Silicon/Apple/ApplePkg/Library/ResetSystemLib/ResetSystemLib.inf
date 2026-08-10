@@ -1,0 +1,33 @@
+##
+#  ResetSystemLib for Apple A-series SoCs.
+#
+#  Reboot via the SoC watchdog timer (Apple has no PSCI monitor under pongoOS,
+#  so ArmPsciResetSystemLib's SMC calls are no-ops). Power-off is handled by the
+#  antigua PMIC over I2C.
+#
+#  Copyright (c) 2026, Trijal Saha. All rights reserved.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = AppleResetSystemLib
+  FILE_GUID                      = 4B0A6E92-8C31-47D5-9E70-1F2A5C8B3D46
+  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = ResetSystemLib|DXE_RUNTIME_DRIVER
+  CONSTRUCTOR                    = ResetSystemLibConstructor
+
+[Sources]
+  ResetSystem.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  IoLib
+  MemoryMapHelperLib
+  UefiBootServicesTableLib

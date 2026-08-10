@@ -1,0 +1,37 @@
+#/** @file
+#
+#  Copyright (c) 2026, Trijal Saha. All rights reserved.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = AppleGpioDxe
+  FILE_GUID                      = 6f3b9d2a-1c4e-4a58-9d2b-7e8f0a1b2c3d
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = InitGpio
+
+[Sources]
+  Gpio.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  ApplePkg/ApplePkg.dec
+  SiliciumPkg/SiliciumPkg.dec
+
+[LibraryClasses]
+  DebugLib
+  MemoryAllocationHelperLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  GpioLib
+  IoLib
+
+[Protocols]
+  gEfiGpioProtocolGuid
+
+[Depex]
+  TRUE
