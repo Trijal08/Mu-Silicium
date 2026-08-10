@@ -9,7 +9,7 @@ requires_kernel_header = false
 #
 [uefi_fd]
 base = 0x805E00000
-size = 0x201000
+size = 0x604000
 
 #
 # Payload Configs
