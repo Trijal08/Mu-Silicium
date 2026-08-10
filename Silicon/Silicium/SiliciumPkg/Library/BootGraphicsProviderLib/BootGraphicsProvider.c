@@ -1,4 +1,6 @@
-/**
+/** @file
+  This library implements the BootGraphicsProviderLib library class interface.
+
   Copyright (C) Microsoft Corporation. All rights reserved.
   SPDX-License-Identifier: BSD-2-Clause-Patent
 **/
@@ -6,6 +8,7 @@
 #include <Library/BootGraphics.h>
 #include <Library/BootGraphicsProviderLib.h>
 #include <Library/DxeServicesLib.h>
+#include <Library/PcdLib.h>
 
 #include "BootGraphicsProvider.h"
 
@@ -23,7 +26,7 @@ GetBootGraphic (
       continue;
     }
 
-    // Return Graphic File Data
+    // Fetch the Graphic File Data
     return GetSectionFromAnyFv (BootGraphics[i].FileGuid, EFI_SECTION_RAW, 0, (VOID **)ImageData, ImageSize);
   }
 
