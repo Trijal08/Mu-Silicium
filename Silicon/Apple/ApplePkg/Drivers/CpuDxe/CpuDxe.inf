@@ -1,0 +1,79 @@
+#/** @file
+#
+#  DXE CPU driver
+#
+#  Copyright (c) 2009, Apple Inc. All rights reserved.<BR>
+#  Copyright (c) 2011-2013, ARM Limited. All rights reserved.
+#  Copyright (c) 2026, Trijal Saha. All rights reserved.
+#
+#  Local Mu-Silicium copy of ArmPkg/Drivers/CpuDxe. Only AArch64/Mmu.c differs:
+#  its page-table walk selects the translation granule at runtime so it matches
+#  the 16 KB granule ArmMmuLib uses on Apple A-series cores. Mu_Basecore is left
+#  untouched.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = AppleArmCpuDxe
+  FILE_GUID                      = 12969ef8-a45f-438e-a04a-dbfffadb05c2
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+
+  ENTRY_POINT                    = CpuDxeInitialize
+
+[Sources.Common]
+  CpuDxe.c
+  CpuDxe.h
+  CpuMmuCommon.c
+  Exception.c
+  MemoryAttribute.c
+
+[Sources.AARCH64]
+  AArch64/Mmu.c
+
+[Packages]
+  ArmPkg/ArmPkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  UefiCpuPkg/UefiCpuPkg.dec
+
+[LibraryClasses]
+  ArmLib
+  ArmMmuLib
+  BaseMemoryLib
+  CacheMaintenanceLib
+  CpuLib
+  CpuExceptionHandlerLib
+  DebugLib
+  DefaultExceptionHandlerLib
+  DxeServicesTableLib
+  HobLib
+  MemoryAllocationLib
+  PeCoffGetEntryPointLib
+  UefiDriverEntryPoint
+  UefiLib
+  DxeMemoryProtectionHobLib # MU_CHANGE
+
+[Protocols]
+  gEfiCpuArchProtocolGuid
+  gEfiMemoryAttributeProtocolGuid
+  gHardwareInterruptProtocolGuid
+
+[Guids]
+  gEfiDebugImageInfoTableGuid
+  gArmMpCoreInfoGuid
+  gIdleLoopEventGuid
+  gEfiVectorHandoffTableGuid
+
+[Pcd.common]
+  # gEfiMdeModulePkgTokenSpaceGuid.PcdDxeNxMemoryProtectionPolicy # MU_CHANGE
+
+[FeaturePcd.common]
+  gArmTokenSpaceGuid.PcdRemapUnusedMemoryNx
+
+[Depex]
+  TRUE

@@ -1,0 +1,50 @@
+## @file
+# Library to help set the console to known points (low res, native res)
+#
+# Local Apple copy of PcBdsPkg/Library/GraphicsConsoleHelperLib with the 800px
+# native-resolution floor removed, so panels narrower than 800 (e.g. n69's
+# 640x1136) resolve GCM_NATIVE_RES to their true native mode instead of a
+# non-existent 800x600. Keeps Mu_Basecore/Common submodules unmodified.
+#
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Copyright (c) 2026, Trijal Saha. All rights reserved.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = AppleGraphicsConsoleHelperLib
+  FILE_GUID                      = 7C9A2F18-3B6D-4E05-9A1C-2F8E5B3D6C04
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = GraphicsConsoleHelperLib|DXE_DRIVER UEFI_APPLICATION
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 AARCH64
+#
+
+[Sources]
+  GraphicsConsoleHelper.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  PcBdsPkg/PcBdsPkg.dec
+
+[LibraryClasses]
+  UefiBootServicesTableLib
+  DebugLib
+  PcdLib
+  MemoryAllocationLib
+
+[Protocols]
+  gEfiGraphicsOutputProtocolGuid                ## SOMETIMES_CONSUMES
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutColumn
+  gEfiMdeModulePkgTokenSpaceGuid.PcdConOutRow
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution

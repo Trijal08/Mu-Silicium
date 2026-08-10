@@ -1,0 +1,51 @@
+#/** @file
+#
+#  Copyright The Asahi Linux Contributors
+#  Copyright (c) 2026, Trijal Saha. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: GPL-2.0-or-later
+#
+#**/
+
+[Defines]
+  INF_VERSION                    = 1.30
+  BASE_NAME                      = AppleAicV1Dxe
+  FILE_GUID                      = bc2e4337-2586-4a5f-b7eb-74d7ff293008
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = AicV1DxeInitialize
+
+[Sources.common]
+  AppleAicCommonDxe.c
+  AppleAicDxe.h
+
+  AicV1/AppleAicV1Dxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ArmPkg/ArmPkg.dec
+  ApplePkg/ApplePkg.dec
+
+[LibraryClasses]
+  ArmLib
+  BaseLib
+  DebugLib
+  IoLib
+  MemoryAllocationLib
+  PcdLib
+  PrintLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gHardwareInterruptProtocolGuid  ## PRODUCES
+  gHardwareInterrupt2ProtocolGuid ## PRODUCES
+  gEfiCpuArchProtocolGuid         ## CONSUMES
+
+[Pcd.common]
+  gApplePkgTokenSpaceGuid.PcdAicDistributorBase
+
+[Depex]
+  gEfiCpuArchProtocolGuid
