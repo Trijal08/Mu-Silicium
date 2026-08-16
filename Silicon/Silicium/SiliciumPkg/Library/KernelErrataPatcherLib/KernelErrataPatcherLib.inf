@@ -27,6 +27,7 @@
 [LibraryClasses]
   DebugLib
   UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
   CacheMaintenanceLib
   ErrataPatchesLib
   PerformanceLib
@@ -34,6 +35,8 @@
 
 [Protocols]
   gEfiMemoryAttributeProtocolGuid
+  gEfiBlockIoProtocolGuid
+  gEfiGraphicsOutputProtocolGuid
 
 [Guids]
   gEfiEventExitBootServicesGuid

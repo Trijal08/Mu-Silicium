@@ -34,6 +34,56 @@ STATIC UINTN YPos = 0;
 //
 STATIC CONST CHAR8 *ComboMessage = "[Volume Up] Boot Manager";
 
+//
+// Serial Console Device Path. Must byte-match the handle installed by EmbeddedPkg's
+// SimpleTextInOutSerial: VenHw(6696936D-3637-467C-87CB-14EA8248948C)/Uart(...). The
+// GUID is that driver's FILE_GUID (its EFI_CALLER_ID_GUID); the UART node uses the
+// same PcdUartDefault* values it does. Registering this in ConIn/ConOut lets the
+// ConSplitter console aggregate the serial console now that the UART RX path works.
+//
+typedef struct {
+  VENDOR_DEVICE_PATH       Vendor;
+  UART_DEVICE_PATH         Uart;
+  EFI_DEVICE_PATH_PROTOCOL End;
+} SERIAL_CONSOLE_DEVICE_PATH;
+
+STATIC SERIAL_CONSOLE_DEVICE_PATH SerialConsoleDevicePath = {
+  {
+    {
+      HARDWARE_DEVICE_PATH,
+      HW_VENDOR_DP,
+      {
+        (UINT8)(sizeof (VENDOR_DEVICE_PATH)),
+        (UINT8)((sizeof (VENDOR_DEVICE_PATH)) >> 8)
+      }
+    },
+    { 0x6696936D, 0x3637, 0x467C, { 0x87, 0xCB, 0x14, 0xEA, 0x82, 0x48, 0x94, 0x8C } }
+  },
+  {
+    {
+      MESSAGING_DEVICE_PATH,
+      MSG_UART_DP,
+      {
+        (UINT8)(sizeof (UART_DEVICE_PATH)),
+        (UINT8)((sizeof (UART_DEVICE_PATH)) >> 8)
+      }
+    },
+    0,                                       // Reserved
+    FixedPcdGet64 (PcdUartDefaultBaudRate),  // BaudRate
+    FixedPcdGet8 (PcdUartDefaultDataBits),   // DataBits
+    FixedPcdGet8 (PcdUartDefaultParity),     // Parity
+    FixedPcdGet8 (PcdUartDefaultStopBits)    // StopBits
+  },
+  {
+    END_DEVICE_PATH_TYPE,
+    END_ENTIRE_DEVICE_PATH_SUBTYPE,
+    {
+      (UINT8)(END_DEVICE_PATH_LENGTH),
+      (UINT8)((END_DEVICE_PATH_LENGTH) >> 8)
+    }
+  }
+};
+
 VOID
 EFIAPI
 PlatformBootManagerBeforeConsole ()
@@ -51,6 +101,11 @@ PlatformBootManagerBeforeConsole ()
   EfiBootManagerUpdateConsoleVariable (ConIn,  (EFI_DEVICE_PATH_PROTOCOL *)&KeypadDevicePath,  NULL);
   EfiBootManagerUpdateConsoleVariable (ConOut, (EFI_DEVICE_PATH_PROTOCOL *)&DisplayDevicePath, NULL);
   EfiBootManagerUpdateConsoleVariable (ErrOut, (EFI_DEVICE_PATH_PROTOCOL *)&DisplayDevicePath, NULL);
+
+  // Add the serial console (UART) to ConIn/ConOut so it works alongside the panel and
+  // buttons — relies on the now-working SerialPortLib RX + SimpleTextInOutSerial.
+  EfiBootManagerUpdateConsoleVariable (ConIn,  (EFI_DEVICE_PATH_PROTOCOL *)&SerialConsoleDevicePath, NULL);
+  EfiBootManagerUpdateConsoleVariable (ConOut, (EFI_DEVICE_PATH_PROTOCOL *)&SerialConsoleDevicePath, NULL);
 
   // Update ACPI Tables
   UpdateAcpiTables ();

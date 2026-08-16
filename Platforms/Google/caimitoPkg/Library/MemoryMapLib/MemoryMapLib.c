@@ -8,7 +8,12 @@ gMemoryDescriptor[] = {
   // DDR Regions
   {"UEFI FD",            0xA0011000, 0x00601000, AddMem, SYS_MEM, SYS_MEM_CAP, BsData, WRITE_BACK},
   {"UEFI Stack",         0xA0612000, 0x00040000, AddMem, SYS_MEM, SYS_MEM_CAP, BsData, WRITE_BACK},
-  {"DXE Heap",           0x890000000ULL, 0x03C00000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK},
+  //
+  // Sits in the first high DRAM Bank (0x880000000 - 0x900000000), which is real
+  // Memory per the zumapro Device Tree, unlike the Hole above the low Bank. Sized to
+  // end exactly on the Bank Boundary so the WinPE Ramdisk has somewhere real to live.
+  //
+  {"DXE Heap",           0x890000000ULL, 0x70000000, AddMem, SYS_MEM, SYS_MEM_CAP, Conv,   WRITE_BACK},
   {"Display Reserved",   0xFAC00000, ALIGN_VALUE ((FixedPcdGet32 (PcdFrameBufferWidth) * FixedPcdGet32 (PcdFrameBufferHeight)) * 4, SIZE_4KB), AddMem, MEM_RES, SYS_MEM_CAP, Reserv, WRITE_THROUGH},
 
   // iRAM Regions
@@ -41,7 +46,7 @@ gMemoryDescriptor[] = {
   {"Watchdog Timer CL0", 0x10060000, 0x00001000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
   {"Watchdog Timer CL1", 0x10070000, 0x00001000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
   {"GICD",               0x10400000, 0x00010000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
-  {"GICR",               0x10440000, 0x00100000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
+  {"GICR",               0x10440000, 0x00200000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
   {"PMU",                0x15460000, 0x00010000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
   {"SYSREG HSI0",        0x11020000, 0x00010000, AddDev, MMAP_IO, UNCACHEABLE, MmIO,   NS_DEVICE},
 

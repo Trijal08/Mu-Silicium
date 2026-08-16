@@ -9,8 +9,11 @@
 # holds the Boot Manager, the Boot Configuration Data, the Ram Disk Descriptor and
 # the Boot Image, all of which are Microsoft Binaries.
 #
-# Use a 23H2 or Older Build. Newer ones are not Known to Boot on any Device in
-# this Tree.
+# Build Choice Matters. On caimito (zumapro), Windows 11 21H2 (Build 22000) Boots
+# Completely, while 22H2 and 23H2 (both Ship the same 22621 Boot Files) and 24H2 and
+# 25H2 (both Ship the same 26100 Boot Files) all Hang inside winload before it Reaches
+# ExitBootServices. Windows 10 (19041) Boots as well. Prefer 21H2 unless a newer
+# Build has been Verified on the Device in Hand.
 #
 # WinPE is Deliberately the Target rather than a Full Installation. Its Boot
 # Configuration Loads boot.wim into a Ram Disk, so once the Boot Manager has Read
@@ -22,10 +25,11 @@ set -euo pipefail
 MEDIA="${1:-}"
 OUTPUT="${2:-winpe-esp.img}"
 SIZE_MB="${3:-1024}"
+SECTOR_SIZE="${4:-4096}"
 
 if [ -z "$MEDIA" ] || [ ! -d "$MEDIA" ]; then
 	cat <<-USAGE
-	Usage: $0 <copype media directory> [output image] [size in megabytes]
+	Usage: $0 <copype media directory> [output image] [size in megabytes] [logical sector size]
 
 	  <copype media directory>  The "media" Directory Produced by "copype arm64".
 	                            Must contain EFI/Boot/bootaa64.efi and
@@ -33,9 +37,23 @@ if [ -z "$MEDIA" ] || [ ! -d "$MEDIA" ]; then
 	  [output image]            Defaults to winpe-esp.img
 	  [size in megabytes]       Defaults to 1024. Must Exceed the Payload with
 	                            Room to Spare.
+	  [logical sector size]     Defaults to 4096. MUST match the Device's Block
+	                            Size or the Firmware will not Enumerate the Volume.
+	                            Modern UFS (zumapro/caimito, komodo) is 4Kn -> 4096;
+	                            older eMMC Devices are 512.
 	USAGE
 	exit 1
 fi
+
+#
+# The FAT's Logical Sector Size must match the Storage Device. caimito's UFS is
+# 4Kn, so a 512-Sector FAT (mkfs.vfat's Default on a File) is Read Wrong by the
+# Firmware's FAT Driver and the ESP never Enumerates. Guard against a Typo.
+#
+case "$SECTOR_SIZE" in
+	512|1024|2048|4096) ;;
+	*) echo "Error: logical sector size must be one of 512, 1024, 2048, 4096 (got $SECTOR_SIZE)." >&2; exit 1 ;;
+esac
 
 #
 # Refuse Early if the Payload is not what it should be. A Missing Boot Manager or
@@ -64,7 +82,7 @@ if [ "$PAYLOAD_KB" -ge "$CAPACITY_KB" ]; then
 	exit 1
 fi
 
-echo "Creating a ${SIZE_MB} MB Image for a $((PAYLOAD_KB / 1024)) MB Payload."
+echo "Creating a ${SIZE_MB} MB Image (${SECTOR_SIZE}-byte sectors) for a $((PAYLOAD_KB / 1024)) MB Payload."
 
 rm -f "$OUTPUT"
 truncate -s "${SIZE_MB}M" "$OUTPUT"
@@ -72,9 +90,10 @@ truncate -s "${SIZE_MB}M" "$OUTPUT"
 #
 # FAT32 Explicitly. The Firmware's File System Driver Handles it, and a Smaller
 # Image would otherwise be Formatted as FAT16 and Refused as an EFI System
-# Partition.
+# Partition. -S sets the Logical Sector Size, which MUST match the Device's Block
+# Size (4Kn UFS -> 4096) or the BPB is Misread and the Volume never Mounts.
 #
-mkfs.vfat -F 32 -n "WINPE" "$OUTPUT" >/dev/null
+mkfs.vfat -F 32 -S "$SECTOR_SIZE" -n "WINPE" "$OUTPUT" >/dev/null
 
 #
 # Copy the Tree in Wholesale. The Names Windows looks for are Case Insensitive on

@@ -22,7 +22,16 @@ FrameBufferQueryMode (
 {
   EFI_STATUS Status;
 
-  // Allocate Memory
+  //
+  // Only Mode Zero exists. The Specification requires anything outside the Range to be
+  // rejected, and a Caller that walks Modes until one is refused would otherwise never
+  // be told to stop.
+  //
+  if (This == NULL || Info == NULL || SizeOfInfo == NULL || ModeNumber >= This->Mode->MaxMode) {
+    return EFI_INVALID_PARAMETER;
+  }
+
+  // Allocate Memory. The Caller owns this Buffer and frees it.
   Status = gBS->AllocatePool (EfiBootServicesData, sizeof (EFI_GRAPHICS_OUTPUT_MODE_INFORMATION), (VOID *)Info);
   if (EFI_ERROR (Status)) {
     return Status;
@@ -46,6 +55,15 @@ FrameBufferSetMode (
   IN EFI_GRAPHICS_OUTPUT_PROTOCOL *This,
   IN UINT32                        ModeNumber)
 {
+  //
+  // The Panel runs at one fixed Resolution, so the only Mode that can be set is the one
+  // already in Effect. Accepting any Number regardless would tell a Caller it had got a
+  // Mode it never got.
+  //
+  if (This == NULL || ModeNumber >= This->Mode->MaxMode) {
+    return EFI_UNSUPPORTED;
+  }
+
   return EFI_SUCCESS;
 }
 

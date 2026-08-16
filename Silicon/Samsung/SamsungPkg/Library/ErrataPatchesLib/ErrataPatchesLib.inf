@@ -16,3 +16,4 @@
 [LibraryClasses]
   DebugLib
   BaseMemoryLib
+  CacheMaintenanceLib

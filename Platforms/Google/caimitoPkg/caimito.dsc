@@ -61,6 +61,12 @@
   # SoC Info Structure, so RamManagerLib reads this PCD instead.
   #
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x80000000
+  #
+  # RamManagerLib treats a Base of 2GB specially: the End Address becomes
+  # BASE_32GB + this Size, not Base + Size. 0x3E0000000 therefore describes Memory up
+  # to 0xBE0000000, matching the DRAM Banks the zumapro Device Tree declares at
+  # 0x880000000 - 0xBE0F83000. Shrinking it cuts every high Bank off.
+  #
   gArmTokenSpaceGuid.PcdSystemMemorySize|0x3E0000000
 
   #

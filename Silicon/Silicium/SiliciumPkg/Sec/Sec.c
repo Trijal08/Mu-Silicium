@@ -16,6 +16,8 @@
 #include <Library/TimerLib.h>
 #include <Library/HobLib.h>
 
+#include <Guid/DxeMemoryProtectionSettings.h>
+
 #include "Sec.h"
 
 #ifndef MDEPKG_NDEBUG
@@ -91,6 +93,35 @@ InitializeMemory (
   BuildStackHob (StackBase, StackSize);
 
   return EFI_SUCCESS;
+}
+
+STATIC
+VOID
+PublishMemoryProtectionSettings ()
+{
+  //
+  // Publish the DXE Memory Protection Settings.
+  //
+  // CpuDxe only installs the Memory Attribute Protocol when this Policy asks for it -
+  // upstream installs it unconditionally, and Project Mu put it behind a Setting that
+  // nothing here ever provided. With no HOB the Settings come up as Zeroes, the Protocol
+  // is never installed, and the Firmware quietly lacks a Service the UEFI Specification
+  // has required since Revision 2.10.
+  //
+  // Windows notices. Its Loader asks for the Protocol while mapping its own Images from
+  // Build 22621 onwards - Build 22000 never does, which is exactly why the older Build
+  // boots here and the newer one stops dead in the middle of loading its Resources.
+  //
+  // Everything else stays off. This is deliberately the OFF Preset with one Flag moved:
+  // no Guard Pages, no Null Detection, no Image Protection, so nothing that boots today
+  // starts behaving differently. All it does is hand out the Protocol that CpuDxe has
+  // been able to implement the whole Time.
+  //
+  DXE_MEMORY_PROTECTION_SETTINGS Settings = DXE_MEMORY_PROTECTION_SETTINGS_OFF;
+
+  Settings.InstallMemoryAttributeProtocol = TRUE;
+
+  BuildGuidDataHob (&gDxeMemoryProtectionSettingsGuid, &Settings, sizeof (Settings));
 }
 
 STATIC
@@ -182,6 +213,9 @@ SecMain (
 
   // Build CPU HOB
   BuildCpuHob (ArmGetPhysicalAddressBits (), PcdGet8 (PcdPrePiCpuIoSize));
+
+  // Build Memory Protection Settings HOB
+  PublishMemoryProtectionSettings ();
 
   // Initialize PPI
   if (ArmIsMpCore ()) {
